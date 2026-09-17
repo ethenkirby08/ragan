@@ -1,0 +1,122 @@
+/* ---- Call to action ---- */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-family: var(--font-sans);
+  font-size: var(--t-small);
+  font-weight: 500;
+  letter-spacing: var(--track-mid);
+  text-transform: uppercase;
+  padding: 0.95rem 0;
+  color: inherit;
+  position: relative;
+  transition: opacity var(--dur-fast) var(--ease-out-soft);
+}
+
+.cta__arrow {
+  display: block;
+  width: 26px;
+  transition: transform var(--dur-mid) var(--ease-out-soft);
+}
+
+.cta__arrow svg {
+  width: 100%;
+  height: 8px;
+}
+
+.cta:hover .cta__arrow,
+.cta:focus-visible .cta__arrow {
+  transform: translateX(7px);
+}
+
+/* Line variant: a hairline that draws itself under the label */
+.cta--line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.32;
+  transform-origin: left;
+  transition:
+    opacity var(--dur-fast) var(--ease-out-soft),
+    transform var(--dur-mid) var(--ease-out-soft);
+}
+
+.cta--line:hover::after,
+.cta--line:focus-visible::after {
+  opacity: 1;
+}
+
+/* Solid variant: reserved for the one primary action on a view */
+.cta--solid {
+  padding: 1.05rem 2.1rem;
+  background: var(--forest);
+  color: var(--cream);
+  border: 1px solid var(--forest);
+  transition:
+    background var(--dur-mid) var(--ease-out-soft),
+    color var(--dur-mid) var(--ease-out-soft);
+}
+
+.cta--solid:hover,
+.cta--solid:focus-visible {
+  background: transparent;
+  color: var(--forest);
+}
+
+.cta--ghost {
+  padding: 1.05rem 2.1rem;
+  border: 1px solid currentColor;
+  opacity: 0.86;
+}
+
+.cta--ghost:hover,
+.cta--ghost:focus-visible {
+  opacity: 1;
+}
+
+/* ---- Reveal ---- */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 900ms var(--ease-out-soft),
+    transform 900ms var(--ease-out-soft);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- Chapter mark ---- */
+.chapter-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  opacity: 0.6;
+}
+
+.chapter-mark__index {
+  font-variant-numeric: tabular-nums;
+}
+
+.chapter-mark__rule {
+  display: block;
+  width: 34px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}

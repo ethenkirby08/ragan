@@ -1,0 +1,139 @@
+.card {
+  position: relative;
+}
+
+.card__link {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.card__frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 42% 30%, #ffffff 0%, #f1ece0 46%, #e3dccc 100%);
+}
+
+.card__badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 2;
+  padding: 0.35rem 0.65rem;
+  background: var(--forest);
+  color: var(--cream);
+  font-size: var(--t-micro);
+}
+
+/* Photography and drawn garments share one transition, so swapping in
+   the real campaign shots changes nothing about how a card behaves. */
+.card__image,
+.card__garment {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition:
+    transform 1100ms var(--ease-out-soft),
+    opacity var(--dur-mid) var(--ease-out-soft);
+}
+
+.card__garment {
+  width: 68%;
+  height: auto;
+  filter: drop-shadow(0 22px 26px rgba(23, 25, 20, 0.16));
+}
+
+.card__image--alt,
+.card__garment--alt {
+  opacity: 0;
+}
+
+.card__link:hover .card__image,
+.card__link:hover .card__garment,
+.card__link:focus-visible .card__garment {
+  transform: scale(1.035);
+}
+
+.card__link:hover .card__image--alt,
+.card__link:hover .card__garment--alt,
+.card__link:focus-visible .card__garment--alt {
+  opacity: 1;
+}
+
+.card__link:hover .card__image:not(.card__image--alt),
+.card__link:hover .card__garment:not(.card__garment--alt) {
+  opacity: 0;
+}
+
+.card__body {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.card__name {
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 1.6vw, 1.45rem);
+  font-weight: 400;
+  line-height: 1.1;
+  transition: transform var(--dur-mid) var(--ease-out-soft);
+}
+
+.card__category {
+  font-size: var(--t-micro);
+  opacity: 0.55;
+}
+
+.card__price {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.card__view {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--t-micro);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity var(--dur-mid) var(--ease-out-soft),
+    transform var(--dur-mid) var(--ease-out-soft);
+}
+
+.card__view svg {
+  width: 22px;
+  height: 8px;
+}
+
+.card__link:hover .card__view,
+.card__link:focus-visible .card__view {
+  opacity: 0.7;
+  transform: none;
+}
+
+.card__link:hover .card__name {
+  transform: translateX(3px);
+}
+
+/* Touch devices have no hover — show the affordance permanently. */
+@media (hover: none) {
+  .card__view {
+    opacity: 0.55;
+    transform: none;
+  }
+}

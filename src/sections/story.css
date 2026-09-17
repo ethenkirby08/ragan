@@ -1,0 +1,522 @@
+/* ============================================================
+   RAIGE — Film stage & chapters
+   ============================================================ */
+
+.film-stage {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-story);
+  pointer-events: none;
+}
+
+/* Sits behind the chapters, above the 3D scene. */
+.closing-veil {
+  position: fixed;
+  inset: 0;
+  background: var(--forest-dark);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.chapter {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  padding:
+    calc(var(--gutter) + 4.5rem) var(--gutter)
+    calc(var(--gutter) + 2rem);
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+/* Legibility scrims.
+   The course behind is a backlit sunrise — beautiful, and brutal for
+   text contrast. A directional scrim buys the type the contrast it
+   needs without flattening the image into a grey box. */
+.chapter::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.chapter--cream {
+  color: var(--cream);
+}
+
+.chapter--cream::before {
+  background:
+    /* A lower-left vignette: that is where the corner and left-set
+       chapters put their type, and turf is too light to carry cream
+       text on its own. */
+    radial-gradient(ellipse 72% 62% at 20% 86%, rgba(10, 20, 14, 0.62), transparent 72%),
+    radial-gradient(ellipse 86% 64% at 50% 52%, rgba(12, 24, 16, 0.26), transparent 74%),
+    linear-gradient(to bottom, rgba(10, 20, 14, 0.34), transparent 32%, rgba(10, 20, 14, 0.36));
+}
+
+.chapter--forest {
+  color: var(--forest);
+}
+
+/* The editorial environment is already light, so this scrim only has to
+   lift the type a little — any more and it flattens the scene. */
+.chapter--forest::before {
+  background: radial-gradient(
+    ellipse 78% 62% at 50% 42%,
+    rgba(245, 240, 231, 0.52),
+    rgba(245, 240, 231, 0.14) 72%,
+    transparent
+  );
+}
+
+/* ---- Inner compositions ---- */
+.ch {
+  position: relative;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.ch > * {
+  pointer-events: auto;
+}
+
+.ch--center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: clamp(1.5rem, 4vh, 3rem);
+}
+
+/* The first tee is composed against the sky: the lockup sits in the
+   upper third, clear of the tree line and of the ball below it. */
+.ch--opening {
+  justify-content: flex-start;
+  padding-top: clamp(0.5rem, 3vh, 2.4rem);
+  gap: clamp(0.6rem, 1.6vh, 1.4rem);
+}
+
+.ch--left {
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 1.6rem;
+  text-align: left;
+  padding-bottom: 4vh;
+}
+
+.ch--right {
+  align-items: flex-end;
+  justify-content: center;
+  text-align: right;
+  gap: 1.6rem;
+}
+
+.ch--right .ch__lede {
+  text-align: right;
+}
+
+.ch--corner {
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 1.1rem;
+  max-width: 44ch;
+  margin-right: auto;
+  margin-left: 0;
+}
+
+/* ---- Split (editorial two-column) ---- */
+.ch--split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: clamp(2rem, 6vw, 6rem);
+}
+
+.ch__col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.25rem;
+  pointer-events: auto;
+}
+
+.ch__col--art {
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Type ---- */
+.ch__lockup {
+  width: clamp(230px, 34vw, 390px);
+  height: auto;
+}
+
+.ch__line {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(1.8rem, 4.2vw, 3.6rem);
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  max-width: 18ch;
+}
+
+.ch__headline {
+  font-size: var(--t-h1);
+  max-width: 14ch;
+}
+
+.ch__headline--product {
+  font-size: var(--t-h2);
+  max-width: 16ch;
+}
+
+.ch__lede {
+  color: inherit;
+  opacity: 0.74;
+}
+
+.ch__quiet {
+  font-size: var(--t-h3);
+  max-width: 24ch;
+  line-height: 1.24;
+  opacity: 0.9;
+}
+
+.ch__eyebrow {
+  opacity: 0.66;
+}
+
+.ch__final {
+  font-size: var(--t-display);
+  letter-spacing: 0.015em;
+}
+
+.ch__enter {
+  margin-top: 0.8rem;
+}
+
+/* ---- Garment plate ----
+   A tonal field with the garment centred — a campaign frame, not a
+   product listing. */
+.plate {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(42vw, 400px);
+  aspect-ratio: 4 / 5;
+}
+
+.plate--tall {
+  aspect-ratio: 3 / 4;
+}
+
+.plate__disc {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 28%, rgba(245, 240, 231, 0.95), rgba(216, 209, 197, 0.55) 62%, rgba(24, 52, 38, 0.06) 100%);
+  box-shadow: 0 40px 90px -50px rgba(23, 25, 20, 0.5);
+}
+
+.plate__garment {
+  position: relative;
+  width: 84%;
+  height: auto;
+  filter: drop-shadow(0 28px 34px rgba(23, 25, 20, 0.22));
+}
+
+/* ---- Product controls ---- */
+.product-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 1.2rem;
+}
+
+.product-meta__price {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.swatches,
+.sizes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.swatches__title {
+  opacity: 0.6;
+}
+
+.swatches__row,
+.sizes__row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--swatch);
+  border: 1px solid rgba(23, 25, 20, 0.22);
+  outline-offset: 3px;
+  transition: transform var(--dur-fast) var(--ease-out-soft);
+  position: relative;
+}
+
+.swatch:hover {
+  transform: scale(1.08);
+}
+
+.swatch.is-active::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+.size {
+  min-width: 42px;
+  padding: 0.5rem 0.35rem;
+  border: 1px solid currentColor;
+  font-size: var(--t-small);
+  letter-spacing: var(--track-tight);
+  opacity: 0.62;
+  transition:
+    opacity var(--dur-fast) var(--ease-out-soft),
+    background var(--dur-fast) var(--ease-out-soft),
+    color var(--dur-fast) var(--ease-out-soft);
+}
+
+.size:hover {
+  opacity: 0.85;
+}
+
+.size.is-active {
+  opacity: 1;
+  background: var(--forest);
+  color: var(--cream);
+}
+
+.chapter--cream .size.is-active {
+  background: var(--cream);
+  color: var(--forest);
+}
+
+/* ---- Destinations (categories as places, not menu items) ---- */
+.destinations {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 780px);
+  border-top: 1px solid currentColor;
+}
+
+.destinations li {
+  border-bottom: 1px solid currentColor;
+}
+
+.destinations li,
+.destinations {
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.destination {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1.5rem;
+  padding: clamp(0.9rem, 2.2vh, 1.5rem) 0.25rem;
+  text-align: left;
+  transition: padding var(--dur-mid) var(--ease-out-soft);
+}
+
+.destination:hover {
+  padding-left: 1.1rem;
+}
+
+.destination__name {
+  font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+  line-height: 1;
+}
+
+.destination__line {
+  font-size: var(--t-small);
+  opacity: 0.6;
+}
+
+.destination__arrow {
+  width: 26px;
+  opacity: 0.55;
+  transition:
+    transform var(--dur-mid) var(--ease-out-soft),
+    opacity var(--dur-fast) var(--ease-out-soft);
+}
+
+.destination__arrow svg {
+  width: 100%;
+  height: 8px;
+}
+
+.destination:hover .destination__arrow {
+  transform: translateX(7px);
+  opacity: 1;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 900px) {
+  .ch--split {
+    grid-template-columns: 1fr;
+    gap: clamp(1.2rem, 3vh, 2rem);
+    justify-items: center;
+    text-align: center;
+  }
+
+  .ch__col {
+    align-items: center;
+    text-align: center;
+  }
+
+  /* On a phone the garment leads and the copy follows. */
+  .ch--product .ch__col--art {
+    order: -1;
+  }
+
+  .plate {
+    width: min(58vw, 260px);
+  }
+
+  .ch--right {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .ch--right .ch__lede {
+    text-align: left;
+  }
+
+  .destination {
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem 1rem;
+  }
+
+  .destination__line {
+    grid-column: 1 / -1;
+  }
+
+  .ch__lede {
+    max-width: 38ch;
+  }
+}
+
+@media (max-width: 560px) {
+  .chapter {
+    padding:
+      calc(var(--gutter) + 4rem) var(--gutter)
+      calc(var(--gutter) + 1.5rem);
+  }
+
+  .plate {
+    width: min(64vw, 220px);
+  }
+
+  .ch__lockup {
+    width: min(80vw, 300px);
+  }
+
+  /* The product chapter is the tallest in the film and the only one that
+     can overrun a phone viewport, so it gets a compact edit of its own. */
+  .ch--product {
+    gap: 0.75rem;
+  }
+
+  .ch--product .plate {
+    width: min(44vw, 155px);
+  }
+
+  .ch--product .ch__col {
+    gap: 0.7rem;
+  }
+
+  .ch--product .ch__headline--product {
+    font-size: 1.75rem;
+  }
+
+  .ch--product .ch__lede {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    max-width: 34ch;
+  }
+
+  .ch--product .swatches,
+  .ch--product .sizes {
+    gap: 0.4rem;
+  }
+
+  .ch--product .size {
+    min-width: 34px;
+    padding: 0.38rem 0.25rem;
+  }
+
+  .ch--product .cta {
+    padding-block: 0.6rem;
+  }
+}
+
+/* Short landscape screens: reclaim vertical space. */
+@media (max-height: 560px) and (min-width: 700px) {
+  .ch__lockup {
+    width: clamp(180px, 22vw, 260px);
+  }
+
+  .plate {
+    width: min(26vw, 210px);
+  }
+}
+
+/* ============================================================
+   The reduced-motion edit
+   ============================================================ */
+.static-story {
+  position: relative;
+  z-index: var(--z-story);
+}
+
+.static-chapter {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: 78vh;
+  padding: clamp(3rem, 10vh, 7rem) var(--gutter);
+}
+
+.static-chapter--cream {
+  color: var(--cream);
+  background: linear-gradient(to bottom, rgba(10, 20, 14, 0.52), rgba(10, 20, 14, 0.42));
+}
+
+.static-chapter--forest {
+  color: var(--forest);
+  background: var(--cream);
+}
+
+.static-chapter .ch {
+  position: relative;
+}
+
+.static-chapter .chapter::before {
+  display: none;
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#183426"/>
+  <g fill="#f5f0e7">
+    <text x="53" y="52" text-anchor="middle" dominant-baseline="central"
+          font-family="Georgia, 'Times New Roman', serif" font-size="74" font-weight="500">R</text>
+    <circle cx="38" cy="16" r="2.4"/>
+    <path d="M38.8 19.5 C 48 20.5, 56 23.5, 62 28 C 55 30.5, 46 32.2, 38.8 32.4 Z"/>
+  </g>
+  <g stroke="#f5f0e7" stroke-width="2.6" stroke-linecap="round" fill="none">
+    <line x1="38" y1="17" x2="38" y2="82"/>
+    <path d="M31 82 Q38 86 45 82"/>
+  </g>
+</svg>

@@ -1,0 +1,14 @@
+.cinematic-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-canvas);
+  background: var(--forest-dark);
+  /* The canvas is scenery — every click belongs to the content above it. */
+  pointer-events: none;
+}
+
+.cinematic-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}

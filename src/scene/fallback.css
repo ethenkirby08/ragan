@@ -1,0 +1,168 @@
+/* ============================================================
+   RAIGE — CSS course
+
+   Stands in for the 3D scene when WebGL is unavailable or when the
+   visitor has asked for reduced motion. It is composed as a still
+   photograph would be: hazy dawn light, a soft tree line, a fairway
+   falling away, and the ball on its tee.
+   ============================================================ */
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  --editorial: 0;
+  --horizon: 0vh;
+  /* Where the turf meets the haze. Everything else is placed off this. */
+  --horizon-line: 46%;
+  background: var(--forest-dark);
+}
+
+.fallback__sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    #8fa8a6 0%,
+    #b3bfb4 26%,
+    #d3cfba 40%,
+    #e7d9bc 46%,
+    #ecdfc4 52%
+  );
+}
+
+.fallback__sun {
+  position: absolute;
+  left: 68%;
+  top: 40%;
+  width: 62vmax;
+  height: 62vmax;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 244, 214, 0.9) 0%,
+    rgba(255, 232, 184, 0.34) 20%,
+    rgba(255, 226, 174, 0) 60%
+  );
+  pointer-events: none;
+}
+
+/* Hazed tree line. Its base is deliberately hidden behind the turf's
+   soft edge so nothing reads as a cut-out. */
+.fallback__trees {
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  bottom: calc(100% - var(--horizon-line) - 3%);
+  height: 16vh;
+  background:
+    radial-gradient(ellipse 7% 88% at 5% 104%, #2a4024 0 60%, transparent 63%),
+    radial-gradient(ellipse 13% 62% at 15% 106%, #24381f 0 60%, transparent 63%),
+    radial-gradient(ellipse 6% 104% at 26% 102%, #2c4526 0 60%, transparent 63%),
+    radial-gradient(ellipse 15% 54% at 38% 108%, #213420 0 60%, transparent 63%),
+    radial-gradient(ellipse 8% 82% at 48% 104%, #294024 0 60%, transparent 63%),
+    radial-gradient(ellipse 17% 46% at 62% 110%, #23371f 0 60%, transparent 63%),
+    radial-gradient(ellipse 7% 94% at 73% 103%, #2b4325 0 60%, transparent 63%),
+    radial-gradient(ellipse 12% 58% at 85% 107%, #243a21 0 60%, transparent 63%),
+    radial-gradient(ellipse 9% 76% at 96% 105%, #2a4024 0 60%, transparent 63%);
+  /* Distance haze: the tops stay dark, the bases dissolve into the air. */
+  opacity: 0.8;
+  filter: blur(2px);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 46%, transparent 96%);
+}
+
+/*
+  The fairway. Bands compress toward the horizon to imply perspective —
+  even, vertical stripes read as a barcode, not as mown turf.
+*/
+.fallback__fairway {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  top: var(--horizon-line);
+  bottom: 0;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.022) 0 4%,
+      rgba(0, 0, 0, 0.03) 4% 8%
+    ),
+    linear-gradient(
+      to bottom,
+      #cbc3ab 0%,
+      #7d9160 3%,
+      #517a38 12%,
+      #456b31 46%,
+      #2c4526 100%
+    );
+}
+
+/* The ball, resting on its tee just below the horizon. */
+.fallback__ball {
+  position: absolute;
+  left: 58%;
+  top: calc(var(--horizon-line) + 27%);
+  width: clamp(30px, 3.6vw, 52px);
+  height: clamp(30px, 3.6vw, 52px);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 36% 28%,
+    #ffffff 0%,
+    #f6f2e8 42%,
+    #d5cebc 76%,
+    #a89f8c 100%
+  );
+  box-shadow:
+    0 12px 26px rgba(18, 39, 28, 0.38),
+    inset -4px -5px 10px rgba(112, 108, 92, 0.32);
+  will-change: transform;
+}
+
+/* Tee and contact shadow, drawn off the ball so they travel with it. */
+.fallback__ball::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 92%;
+  width: 22%;
+  height: 74%;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, #efe7d6, #cfc6b2);
+  clip-path: polygon(0 0, 100% 0, 66% 100%, 34% 100%);
+}
+
+.fallback__ball::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 150%;
+  width: 220%;
+  height: 46%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    rgba(14, 30, 18, 0.45) 0%,
+    rgba(14, 30, 18, 0) 70%
+  );
+}
+
+/* The cream editorial wash, driven by the same scroll value as the 3D scene. */
+.fallback__wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, #f7f3ea, #d7cfc0);
+  opacity: var(--editorial);
+  pointer-events: none;
+}
+
+/* The tee and its shadow retire once the ball is airborne. */
+.fallback__ball {
+  --tee: 1;
+}
+
+.fallback__ball::before,
+.fallback__ball::after {
+  opacity: var(--tee);
+  transition: opacity 400ms var(--ease-out-soft);
+}

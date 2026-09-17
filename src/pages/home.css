@@ -1,0 +1,35 @@
+.canvas-placeholder {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-canvas);
+  background: var(--forest-dark);
+}
+
+/* The scroll runway for the cinematic act.
+   Shorter on phones: the same story, fewer swipes to get through it. */
+.film-track {
+  position: relative;
+  z-index: 1;
+  height: 900vh;
+  pointer-events: none;
+}
+
+/* Everything after the film sits on an opaque surface, so it slides up
+   and covers the fixed canvas cleanly. */
+.after-film {
+  position: relative;
+  z-index: var(--z-flow);
+  background: var(--cream);
+}
+
+@media (max-width: 820px) {
+  .film-track {
+    height: 720vh;
+  }
+}
+
+@media (max-height: 560px) and (max-width: 1024px) {
+  .film-track {
+    height: 640vh;
+  }
+}
