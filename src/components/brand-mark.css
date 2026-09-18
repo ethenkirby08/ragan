@@ -1,0 +1,44 @@
+/* ============================================================
+   RAIGE — Brand marks
+   ============================================================ */
+
+.mark {
+  display: block;
+  height: auto;
+}
+
+.mark__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The artwork is fine-lined; never let a browser soften it. */
+  image-rendering: auto;
+  user-select: none;
+}
+
+/*
+  `auto` tone: both inks are stacked and cross-faded, so a mark sitting on
+  a surface that changes colour beneath it stays legible without ever
+  recolouring the artwork at runtime.
+*/
+.mark--auto {
+  position: relative;
+  display: block;
+}
+
+.mark--auto .mark__img {
+  transition: opacity var(--dur-mid) var(--ease-out-soft);
+}
+
+.mark--auto .mark__img--cream {
+  position: absolute;
+  inset: 0;
+}
+
+/* Default is the reversed (cream) art, because the film opens dark. */
+.mark--auto .mark__img--ink { opacity: 0; }
+.mark--auto .mark__img--cream { opacity: 1; }
+
+/* Flipped by the navigation once it is over a light surface. */
+.nav--on-cream .mark--auto .mark__img--ink { opacity: 1; }
+.nav--on-cream .mark--auto .mark__img--cream { opacity: 0; }

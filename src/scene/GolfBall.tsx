@@ -25,6 +25,7 @@ import {
    ------------------------------------------------------------ */
 export function GolfBall({ quality }: { quality: number }) {
   const ball = useRef<THREE.Mesh>(null);
+  const blur = useRef<THREE.Group>(null);
   const shadow = useRef<THREE.Mesh>(null);
 
   const colorMap = useMemo(() => createBallColorMap(), []);
@@ -43,22 +44,59 @@ export function GolfBall({ quality }: { quality: number }) {
 
   const segments = quality > 0.75 ? 64 : 40;
   const pos = useMemo(() => new THREE.Vector3(), []);
+  const ahead = useMemo(() => new THREE.Vector3(), []);
+  const travel = useMemo(() => new THREE.Vector3(), []);
+  const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+  const stretch = useRef(0);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const p = scrollStore.get();
     ballPosition(p, pos);
 
+    if (blur.current) blur.current.position.copy(pos);
+
     if (ball.current) {
-      ball.current.position.copy(pos);
       // Backspin about the axis perpendicular to the line of flight,
       // plus a slow drift so the brand stamp comes around in the air.
       const spin = ballSpin(p);
       ball.current.rotation.set(-spin, spin * 0.06, 0.12);
     }
 
+    /*
+      Motion blur, from the ball's own travel rather than from a guess.
+
+      The path is sampled a hair ahead of where we are to get the
+      direction of travel, and that is multiplied by how fast the
+      TIMELINE is moving to get world units per second. The ball is then
+      stretched along exactly that vector. It reads as speed at impact
+      and through the flight, and vanishes to nothing on the tee and on
+      the green, because there the ball genuinely is not moving.
+    */
+    if (blur.current) {
+      const dt = Math.min(Math.max(delta, 1 / 240), 1 / 24);
+      ballPosition(Math.min(p + 0.001, 1), ahead);
+      travel.copy(ahead).sub(pos);
+
+      const perProgress = travel.length() / 0.001;
+      const speed = perProgress * Math.abs(scrollStore.getVelocity());
+      const wanted = clamp(speed / 420, 0, 0.85);
+
+      // Eased so the stretch grows and releases smoothly rather than
+      // flickering frame to frame.
+      stretch.current += (wanted - stretch.current) * (1 - Math.exp(-9 * dt));
+
+      if (stretch.current > 0.004 && travel.lengthSq() > 1e-10) {
+        travel.normalize();
+        blur.current.quaternion.setFromUnitVectors(up, travel);
+        blur.current.scale.set(1, 1 + stretch.current, 1);
+      } else {
+        blur.current.quaternion.identity();
+        blur.current.scale.setScalar(1);
+      }
+    }
+
     if (shadow.current) {
       const height = Math.max(pos.y - BALL_RADIUS, 0);
-      // The shadow spreads and dissolves as the ball climbs away.
       // A shadow spreads AND thins as its caster rises; only widening it
       // leaves a dark blot under a ball that is metres in the air.
       const spread = 1 + height * 0.7;
@@ -72,16 +110,20 @@ export function GolfBall({ quality }: { quality: number }) {
 
   return (
     <>
-      <mesh ref={ball} castShadow={false}>
-        <sphereGeometry args={[BALL_RADIUS, segments, segments / 2]} />
-        <meshStandardMaterial
-          map={colorMap}
-          normalMap={normalMap}
-          normalScale={new THREE.Vector2(1.15, 1.15)}
-          roughness={0.28}
-          metalness={0}
-        />
-      </mesh>
+      {/* The blur group carries position and the speed stretch; the ball
+          spins inside it, so spin and stretch never fight each other. */}
+      <group ref={blur}>
+        <mesh ref={ball} castShadow={false}>
+          <sphereGeometry args={[BALL_RADIUS, segments, segments / 2]} />
+          <meshStandardMaterial
+            map={colorMap}
+            normalMap={normalMap}
+            normalScale={new THREE.Vector2(1.15, 1.15)}
+            roughness={0.28}
+            metalness={0}
+          />
+        </mesh>
+      </group>
 
       {/* Contact shadow */}
       <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>

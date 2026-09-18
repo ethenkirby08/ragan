@@ -138,8 +138,8 @@ export default function Navigation({ cinematic = false }: { cinematic?: boolean 
         <div className="nav__veil" aria-hidden="true" />
         <div className="nav__inner">
           <Link to="/" className="nav__brand" aria-label="RAIGE — home">
-            <RaigeMonogram className="nav__monogram" title="" />
-            <RaigeWordmark className="nav__wordmark" title="" />
+            <RaigeMonogram className="nav__monogram" title="" tone="auto" />
+            <RaigeWordmark className="nav__wordmark" title="" tone="auto" />
           </Link>
 
           <nav className="nav__links" aria-label="Primary">

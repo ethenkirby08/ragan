@@ -1,7 +1,8 @@
-import { useMemo, useRef, useLayoutEffect } from 'react';
+import { useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { seeded } from '../lib/motion';
+import { createFoliageTexture } from './textures';
 import { scrollStore } from '../lib/scrollStore';
 import {
   GREEN_CENTER,
@@ -44,7 +45,15 @@ const skyFrag = /* glsl */ `
 
   void main() {
     vec3 d = normalize(vDir);
-    float h = smoothstep(-0.08, 0.62, d.y);
+
+    /*
+      The gradient holds flat at the horizon colour for a band just above
+      the horizon before climbing to the zenith. The ground fogs out to
+      exactly that colour, so the two meet with nothing to see. Ramping
+      from below the horizon instead leaves a faint step right along the
+      skyline, which the eye picks out immediately.
+    */
+    float h = smoothstep(0.035, 0.78, d.y);
     vec3 col = mix(uHorizon, uZenith, h);
 
     float aligned = max(dot(d, normalize(uSunDir)), 0.0);
@@ -131,6 +140,7 @@ const groundFrag = /* glsl */ `
   uniform float uFogDensity;
   uniform float uSunFacing;
   uniform float uEditorial;
+  uniform vec3 uSunDir;
   varying vec3 vWorld;
   varying float vDepth;
 
@@ -151,21 +161,44 @@ const groundFrag = /* glsl */ `
 
   void main() {
     // Fairway corridor: mown turf in the middle, rough at the edges.
+    float edge = noise(vec2(vWorld.z * 0.03, 0.0)) * 9.0;
     float lateral = abs(vWorld.x + vWorld.z * 0.012);
-    float corridor = 1.0 - smoothstep(16.0, 30.0, lateral);
+    float corridor = 1.0 - smoothstep(15.0 + edge, 31.0 + edge, lateral);
     vec3 col = mix(uRough, uFairway, corridor);
 
     // Mower stripes, alternating with the direction of cut.
-    float stripe = sin(vWorld.z * 0.21) * 0.5 + 0.5;
-    stripe = smoothstep(0.3, 0.7, stripe);
-    col *= mix(0.84, 1.2, stripe * corridor);
+    // Mower stripes. Softened at the edges and broken up by noise,
+    // because a real cut wanders and a perfect sine reads as a barcode.
+    float wander = noise(vWorld.xz * 0.06) * 2.4;
+    float stripe = sin(vWorld.z * 0.2 + wander) * 0.5 + 0.5;
+    stripe = smoothstep(0.12, 0.88, stripe);
+    col *= mix(0.88, 1.14, stripe * corridor);
 
-    // Three octaves of mottling. The finest one carries the near-field
-    // turf detail that used to be faked with instanced tufts.
-    float n = noise(vWorld.xz * 0.09) * 0.45
-            + noise(vWorld.xz * 0.9) * 0.33
-            + noise(vWorld.xz * 6.5) * 0.22;
-    col *= 0.8 + n * 0.4;
+    // Five octaves of mottling. Real turf is never one colour: it carries
+    // broad patches from drainage and mowing, clumping at a metre or so,
+    // and a fine grain right under the lens.
+    float n = noise(vWorld.xz * 0.05) * 0.34
+            + noise(vWorld.xz * 0.22) * 0.24
+            + noise(vWorld.xz * 0.9) * 0.2
+            + noise(vWorld.xz * 4.0) * 0.13
+            + noise(vWorld.xz * 15.0) * 0.09;
+    col *= 0.78 + n * 0.46;
+
+    // A directional grain, as though the turf were cut in one direction.
+    float grain = noise(vec2(vWorld.x * 22.0, vWorld.z * 3.0));
+    col *= 0.95 + grain * 0.1;
+
+    vec3 view = normalize(cameraPosition - vWorld);
+
+    /*
+      Grass sheen. Turf is not a diffuse sheet — the blades scatter light
+      forward, so it goes pale and silvery when you look toward a low sun
+      and stays dark when the sun is behind you. This one term does more
+      for the photographic read of a fairway than any amount of texture.
+    */
+    float toSun = max(dot(view, normalize(uSunDir)), 0.0);
+    float grazing = 1.0 - max(view.y, 0.0);
+    col += vec3(0.30, 0.31, 0.22) * pow(toSun, 3.5) * pow(grazing, 2.0) * 0.85;
 
     // Long raking light from the low sun.
     col *= 0.94 + uSunFacing * 0.12;
@@ -202,6 +235,7 @@ export function Turf({
       uFogDensity: { value: 0.0115 },
       uSunFacing: { value: 0.5 },
       uEditorial: { value: 0 },
+      uSunDir: { value: SUN_DIR.clone() },
     }),
     [fogColor],
   );
@@ -235,18 +269,30 @@ export function Turf({
 /* ------------------------------------------------------------
    Tree line
 
-   Instanced canopies and trunks. Seen through haze at distance they
-   read as mature Southern hardwoods; two draw calls for the lot.
+   Each tree is three quads crossed about its trunk, carrying a generated
+   foliage texture with a torn alpha edge. Solid low-poly canopies were
+   the single most "video game" thing in the scene: they gave every tree
+   the same smooth silhouette and a hard edge against the sky. Crossed
+   billboards break that edge up and let the haze through the canopy,
+   which is what reads as a real tree line at distance.
+
+   Alpha testing rather than blending keeps them depth-sorted correctly
+   with no transparency artefacts, and the whole line is two draw calls.
    ------------------------------------------------------------ */
 const TREE_COUNT = 150;
+/** Quads per tree. Three gives a full silhouette from any angle. */
+const CARDS = 3;
 
 export function TreeLine() {
-  const canopies = useRef<THREE.InstancedMesh>(null);
+  const canopy = useRef<THREE.InstancedMesh>(null);
   const trunks = useRef<THREE.InstancedMesh>(null);
+
+  const foliage = useMemo(() => createFoliageTexture(), []);
+  useEffect(() => () => foliage.dispose(), [foliage]);
 
   const trees = useMemo(() => {
     const rand = seeded(20260417);
-    const list: { x: number; z: number; r: number; h: number; tilt: number }[] = [];
+    const list: { x: number; z: number; r: number; h: number; tilt: number; lean: number }[] = [];
     for (let i = 0; i < TREE_COUNT; i++) {
       const side = i % 2 === 0 ? 1 : -1;
       const z = -52 - rand() * 310;
@@ -255,9 +301,10 @@ export function TreeLine() {
       list.push({
         x: side * inset + (rand() - 0.5) * 8,
         z,
-        r: 3.2 + rand() * 3.2,
-        h: 5.5 + rand() * 6,
-        tilt: (rand() - 0.5) * 0.25,
+        r: 4.2 + rand() * 3.4,
+        h: 6.5 + rand() * 6.5,
+        tilt: (rand() - 0.5) * 0.16,
+        lean: rand() * Math.PI,
       });
     }
     return list;
@@ -265,38 +312,51 @@ export function TreeLine() {
 
   useLayoutEffect(() => {
     const dummy = new THREE.Object3D();
-    const canopyMesh = canopies.current;
+    const tint = new THREE.Color();
+    const canopyMesh = canopy.current;
     const trunkMesh = trunks.current;
     if (!canopyMesh || !trunkMesh) return;
 
+    const rand = seeded(5512287);
+
     trees.forEach((t, i) => {
-      // Main canopy, squashed wider than tall like a mature hardwood.
-      dummy.position.set(t.x, t.h, t.z);
-      dummy.scale.set(t.r * 1.15, t.r * 0.78, t.r * 1.15);
-      dummy.rotation.set(t.tilt, i * 1.7, t.tilt * 0.5);
-      dummy.updateMatrix();
-      canopyMesh.setMatrixAt(i * 2, dummy.matrix);
-
-      // A second, smaller mass offset up and to one side breaks the
-      // perfect dome into something that reads as foliage.
-      dummy.position.set(
-        t.x + t.r * (i % 2 === 0 ? 0.45 : -0.45),
-        t.h + t.r * 0.42,
-        t.z + t.r * 0.25,
+      /*
+        Every tree gets its own tint. A stand of hardwoods varies wildly
+        in depth and species; one texture at one colour across 150 trees
+        is what makes a tree line read as wallpaper.
+      */
+      const shade = 0.6 + rand() * 0.45;
+      const warmth = rand();
+      // Green stays dominant in every channel mix — a hardwood in summer
+      // is never sand-coloured, however much the light varies.
+      tint.setRGB(
+        shade * (0.7 + warmth * 0.14),
+        shade * (0.92 + warmth * 0.1),
+        shade * (0.6 + warmth * 0.1),
       );
-      dummy.scale.set(t.r * 0.72, t.r * 0.56, t.r * 0.72);
-      dummy.rotation.set(t.tilt * 2, i * 2.3, t.tilt);
-      dummy.updateMatrix();
-      canopyMesh.setMatrixAt(i * 2 + 1, dummy.matrix);
 
-      dummy.position.set(t.x, t.h * 0.42, t.z);
-      dummy.scale.set(t.r * 0.11, t.h * 0.5, t.r * 0.11);
-      dummy.rotation.set(0, 0, t.tilt * 0.4);
+      for (let c = 0; c < CARDS; c++) {
+        dummy.position.set(t.x, t.h, t.z);
+        dummy.rotation.set(t.tilt, t.lean + (c * Math.PI) / CARDS, t.tilt * 0.5);
+        // Canopies are wider than they are tall, like a mature hardwood.
+        // Mirroring alternate cards stops one foliage texture from
+        // reading as the same tree stamped 150 times.
+        const flip = (i + c) % 2 === 0 ? 1 : -1;
+        dummy.scale.set(t.r * 2.3 * flip, t.r * 1.85, t.r * 2.3);
+        dummy.updateMatrix();
+        canopyMesh.setMatrixAt(i * CARDS + c, dummy.matrix);
+        canopyMesh.setColorAt(i * CARDS + c, tint);
+      }
+
+      dummy.position.set(t.x, t.h * 0.4, t.z);
+      dummy.scale.set(t.r * 0.075, t.h * 0.46, t.r * 0.075);
+      dummy.rotation.set(0, 0, t.tilt * 0.5);
       dummy.updateMatrix();
       trunkMesh.setMatrixAt(i, dummy.matrix);
     });
 
     canopyMesh.instanceMatrix.needsUpdate = true;
+    if (canopyMesh.instanceColor) canopyMesh.instanceColor.needsUpdate = true;
     trunkMesh.instanceMatrix.needsUpdate = true;
     canopyMesh.computeBoundingSphere();
     trunkMesh.computeBoundingSphere();
@@ -304,13 +364,25 @@ export function TreeLine() {
 
   return (
     <group>
-      <instancedMesh ref={canopies} args={[undefined, undefined, TREE_COUNT * 2]} frustumCulled={false}>
-        <icosahedronGeometry args={[1, 2]} />
-        <meshStandardMaterial color="#20361f" roughness={1} flatShading />
+      <instancedMesh
+        ref={canopy}
+        args={[undefined, undefined, TREE_COUNT * CARDS]}
+        frustumCulled={false}
+      >
+        <planeGeometry args={[1, 1]} />
+        <meshStandardMaterial
+          map={foliage}
+          color="#8f9c72"
+          transparent={false}
+          alphaTest={0.38}
+          side={THREE.DoubleSide}
+          roughness={1}
+          metalness={0}
+        />
       </instancedMesh>
       <instancedMesh ref={trunks} args={[undefined, undefined, TREE_COUNT]} frustumCulled={false}>
-        <cylinderGeometry args={[0.8, 1.1, 2, 5]} />
-        <meshStandardMaterial color="#2a2418" roughness={1} />
+        <cylinderGeometry args={[0.7, 1.15, 2, 6]} />
+        <meshStandardMaterial color="#3a3020" roughness={1} />
       </instancedMesh>
     </group>
   );
@@ -346,13 +418,24 @@ export function PuttingGreen() {
         <meshStandardMaterial color="#5e8347" roughness={0.95} />
       </mesh>
 
-      {/* Collar of slightly longer grass around the edge. */}
+      {/*
+        Collar. Two wide, low-contrast rings rather than one hard band —
+        a real green fades into its surround through a fringe and a
+        first cut, and a single dark ring reads as a painted edge.
+      */}
       <mesh
-        position={[GREEN_CENTER.x, 0.008, GREEN_CENTER.z]}
+        position={[GREEN_CENTER.x, 0.009, GREEN_CENTER.z]}
         rotation={[-Math.PI / 2, 0, 0]}
       >
-        <ringGeometry args={[GREEN_RADIUS, GREEN_RADIUS + 2.4, 64]} />
-        <meshStandardMaterial color="#496b3a" roughness={1} />
+        <ringGeometry args={[GREEN_RADIUS - 0.6, GREEN_RADIUS + 2.2, 64]} />
+        <meshStandardMaterial color="#557a41" roughness={1} />
+      </mesh>
+      <mesh
+        position={[GREEN_CENTER.x, 0.006, GREEN_CENTER.z]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <ringGeometry args={[GREEN_RADIUS + 1.6, GREEN_RADIUS + 5.5, 64]} />
+        <meshStandardMaterial color="#4c7038" roughness={1} />
       </mesh>
 
       {/* The hole. */}

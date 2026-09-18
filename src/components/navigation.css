@@ -48,14 +48,12 @@
 }
 
 .nav__monogram {
-  width: 30px;
-  height: 30px;
+  width: 28px;
   flex: none;
 }
 
 .nav__wordmark {
-  width: 104px;
-  height: 22px;
+  width: 96px;
   flex: none;
   transition: opacity var(--dur-fast) var(--ease-out-soft);
 }

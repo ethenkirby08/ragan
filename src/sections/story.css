@@ -53,6 +53,9 @@
        chapters put their type, and turf is too light to carry cream
        text on its own. */
     radial-gradient(ellipse 72% 62% at 20% 86%, rgba(10, 20, 14, 0.62), transparent 72%),
+    /* The apex and flight chapters set type hard right over open fairway,
+       which is the brightest surface in the film. */
+    radial-gradient(ellipse 66% 70% at 86% 56%, rgba(10, 20, 14, 0.68), transparent 74%),
     radial-gradient(ellipse 86% 64% at 50% 52%, rgba(12, 24, 16, 0.26), transparent 74%),
     linear-gradient(to bottom, rgba(10, 20, 14, 0.34), transparent 32%, rgba(10, 20, 14, 0.36));
 }
@@ -153,7 +156,7 @@
 
 /* ---- Type ---- */
 .ch__lockup {
-  width: clamp(230px, 34vw, 390px);
+  width: clamp(215px, 30vw, 360px);
   height: auto;
 }
 

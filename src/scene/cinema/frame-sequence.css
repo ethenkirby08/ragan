@@ -1,0 +1,14 @@
+.frame-sequence {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--forest-dark);
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease-out-soft);
+}
+
+.frame-sequence.is-ready {
+  opacity: 1;
+}

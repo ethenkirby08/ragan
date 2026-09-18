@@ -1,6 +1,7 @@
 import Lenis from 'lenis';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { scrollStore } from './scrollStore';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -42,8 +43,17 @@ export function initSmoothScroll(): Lenis {
   return lenis;
 }
 
+let lastTick = 0;
+
 const tickerCallback = (time: number) => {
   lenis?.raf(time * 1000);
+
+  // The film advances on the same clock as scroll and animation. One
+  // ticker for all three is what keeps the timeline from stuttering
+  // against the page.
+  const dt = lastTick ? time - lastTick : 1 / 60;
+  lastTick = time;
+  scrollStore.advance(dt);
 };
 
 export function destroySmoothScroll() {
@@ -51,6 +61,7 @@ export function destroySmoothScroll() {
   gsap.ticker.remove(tickerCallback);
   lenis.destroy();
   lenis = null;
+  lastTick = 0;
 }
 
 export const getLenis = () => lenis;

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { scrollStore } from '../lib/scrollStore';
-import { damp } from '../lib/motion';
 import {
   ballPosition,
   cameraPosition,
@@ -13,7 +12,8 @@ import {
   editorialAmount,
 } from './cinematics';
 import { GolfBall, Tee, Club, TurfSpray } from './GolfBall';
-import { createEnvironmentMap } from './textures';
+import { createEnvironmentMap, createGlareTexture } from './textures';
+import Grass from './Grass';
 import { Sky3D, Turf, TreeLine, PuttingGreen, SUN_DIR } from './Environment';
 
 /* ============================================================
@@ -30,26 +30,19 @@ function CameraRig() {
   const target = useMemo(() => new THREE.Vector3(), []);
   const smoothTarget = useMemo(() => new THREE.Vector3(0, 0.25, -0.5), []);
 
-  // The lens trails the raw scroll value very slightly. That lag is what
-  // gives the camera weight — it feels like a real operator following the
-  // ball rather than a value being assigned to a transform.
-  const damped = useRef(0);
-  const initialised = useRef(false);
+  /*
+    The camera reads the SAME damped timeline the ball does.
 
+    It used to run its own second layer of damping on top, which meant
+    that during a fast scroll the lens was looking at where the ball had
+    been rather than where it was — on a phone that reads as the ball
+    vanishing. The smoothing now lives in one place, the store, so the
+    lens and its subject cannot come apart at any scroll speed.
+  */
   useFrame((_, delta) => {
-    const p = scrollStore.get();
+    const dp = scrollStore.get();
     const dt = Math.min(delta, 1 / 30);
 
-    if (!initialised.current) {
-      damped.current = p;
-      initialised.current = true;
-    } else {
-      damped.current = damp(damped.current, p, 11, dt);
-      // Snap the last sliver so the camera always truly settles.
-      if (Math.abs(damped.current - p) < 0.0004) damped.current = p;
-    }
-
-    const dp = damped.current;
     ballPosition(dp, ball);
     cameraPosition(dp, ball, position);
     cameraTarget(dp, ball, target);
@@ -61,6 +54,13 @@ function CameraRig() {
     camera.lookAt(smoothTarget);
 
     const perspective = camera as THREE.PerspectiveCamera;
+    /*
+      Field of view is left alone across aspect ratios on purpose. Three's
+      fov is VERTICAL, so a portrait phone already preserves the ball's
+      on-screen height exactly; it simply crops the sides, which trims the
+      tree line rather than the subject. Compensating here would only make
+      the ball smaller on the screen that can least afford it.
+    */
     const fov = cameraFov(dp);
     if (Math.abs(perspective.fov - fov) > 0.01) {
       perspective.fov = fov;
@@ -154,12 +154,63 @@ function Atmosphere({
 }
 
 /** Holds the fairway and tree line off-screen once we're over the green. */
+/**
+ * Sun glare.
+ *
+ * Parked in the sun's direction and kept facing the lens, fading in as
+ * the camera turns toward it. The whole scene is backlit by a low sun, so
+ * this is the one effect that genuinely belongs — it is what a real lens
+ * does when you point it down a fairway at sunrise.
+ */
+function SunGlare() {
+  const sprite = useRef<THREE.Mesh>(null);
+  const { camera } = useThree();
+  const glare = useMemo(() => createGlareTexture(), []);
+  const forward = useMemo(() => new THREE.Vector3(), []);
+
+  useEffect(() => () => glare.dispose(), [glare]);
+
+  useFrame(() => {
+    const mesh = sprite.current;
+    if (!mesh) return;
+
+    const editorial = editorialAmount(scrollStore.get());
+    mesh.position.copy(camera.position).addScaledVector(SUN_DIR, 140);
+    mesh.quaternion.copy(camera.quaternion);
+
+    camera.getWorldDirection(forward);
+    const alignment = Math.max(forward.dot(SUN_DIR), 0);
+    // Only blooms when the lens is actually pointed near the sun, and
+    // retires entirely in the cream studio chapters.
+    const strength = Math.pow(alignment, 2.2) * (1 - editorial);
+    (mesh.material as THREE.MeshBasicMaterial).opacity = strength * 0.5;
+    mesh.visible = strength > 0.01;
+  });
+
+  return (
+    <mesh ref={sprite} renderOrder={-50} visible={false}>
+      <planeGeometry args={[150, 150]} />
+      <meshBasicMaterial
+        map={glare}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        depthTest={false}
+        blending={THREE.AdditiveBlending}
+        fog={false}
+      />
+    </mesh>
+  );
+}
+
 function CourseBody({
   fogColor,
   fogDensityRef,
+  quality,
 }: {
   fogColor: THREE.Color;
   fogDensityRef: React.MutableRefObject<number>;
+  quality: number;
 }) {
   const trees = useRef<THREE.Group>(null);
 
@@ -177,6 +228,29 @@ function CourseBody({
       <group ref={trees}>
         <TreeLine />
       </group>
+
+      {/*
+        Real blades, only where the lens is close enough to resolve them:
+        the tee at the open and the green at the close. In between we are
+        hundreds of units up and the turf shader carries the ground.
+      */}
+      <Grass
+        center={[0, 0, -0.4]}
+        radius={11}
+        count={Math.round(52000 * quality)}
+        visibleFrom={0}
+        visibleTo={0.3}
+        fogColor={fogColor}
+        fogDensityRef={fogDensityRef}
+        sunDir={SUN_DIR}
+      />
+      {/*
+        No blades on the green. A putting surface is cut to about three
+        millimetres — at the distance this shot uses, individual blades
+        are below a pixel, and scattering them across it just reads as
+        grit on the felt. The turf shader carries the green.
+      */}
+
       <PuttingGreen />
     </>
   );
@@ -194,7 +268,8 @@ export default function Scene({ quality }: { quality: number }) {
       <EnvironmentMap />
       <Atmosphere fogColor={fogColor} fogDensityRef={fogDensityRef} />
       <Sky3D fogColor={fogColor} />
-      <CourseBody fogColor={fogColor} fogDensityRef={fogDensityRef} />
+      <SunGlare />
+      <CourseBody fogColor={fogColor} fogDensityRef={fogDensityRef} quality={quality} />
       <Tee />
       <GolfBall quality={quality} />
       <Club />

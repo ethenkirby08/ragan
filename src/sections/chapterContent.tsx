@@ -17,7 +17,11 @@ import { SIGNATURE, formatPrice, CATEGORIES } from '../data/products';
 export function FirstTeeContent() {
   return (
     <div className="ch ch--center ch--opening">
-      <RaigeLockup className="ch__lockup" title="RAIGE — Southern and Golf Apparel, est. 2026" />
+      <RaigeLockup
+        className="ch__lockup"
+        title="RAIGE — Southern and Golf Apparel, est. 2026"
+        tone="cream"
+      />
       <h1 className="display ch__line">
         The Southern game,
         <br />

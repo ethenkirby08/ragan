@@ -38,7 +38,7 @@ export default function Footer() {
     <footer className="footer" data-surface="dark">
       <div className="footer__inner">
         <div className="footer__brand">
-          <RaigeLockup className="footer__lockup" title="RAIGE" />
+          <RaigeLockup className="footer__lockup" title="RAIGE" tone="cream" />
         </div>
 
         <div className="footer__columns">

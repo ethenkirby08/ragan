@@ -41,9 +41,12 @@ export default function Home() {
     if (reduced) {
       // The reduced-motion edit is an ordinary document. No smooth scroll,
       // no scrubbing — but the scene still knows where the story sits.
-      scrollStore.set(0);
+      scrollStore.jumpTo(0);
       return;
     }
+
+    // Phones get stronger damping and a lower ceiling on timeline speed.
+    scrollStore.setProfile(isMobile ? 'mobile' : 'desktop');
 
     const node = track.current;
     if (!node) return;
@@ -54,8 +57,11 @@ export default function Home() {
       trigger: node,
       start: 'top top',
       end: 'bottom bottom',
-      onUpdate: (self) => scrollStore.set(self.progress),
-      onRefresh: (self) => scrollStore.set(self.progress),
+      // Scroll only ever sets a TARGET. The store eases toward it under a
+      // speed limit, which is what stops a fast swipe from throwing the
+      // ball across the sky.
+      onUpdate: (self) => scrollStore.setTarget(self.progress),
+      onRefresh: (self) => scrollStore.setTarget(self.progress),
     });
 
     return () => {
@@ -63,7 +69,7 @@ export default function Home() {
       destroySmoothScroll();
       scrollStore.reset();
     };
-  }, [reduced]);
+  }, [reduced, isMobile]);
 
   /* ---- Always open on the first tee ----
      A cinematic open that begins halfway through the film because the
@@ -73,7 +79,7 @@ export default function Home() {
       history.scrollRestoration = 'manual';
     }
     window.scrollTo(0, 0);
-    scrollStore.set(0);
+    scrollStore.jumpTo(0);
     // Let the layout settle before ScrollTrigger measures it.
     const id = window.setTimeout(() => ScrollTrigger.refresh(), 60);
     return () => window.clearTimeout(id);

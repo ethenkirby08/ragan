@@ -201,3 +201,86 @@ export function createEnvironmentMap(): THREE.Texture {
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
+
+/**
+ * Foliage for the tree line.
+ *
+ * A canopy built from a solid mesh reads as a blob on a stick. Real
+ * foliage has a ragged, broken edge and lets light through, so this
+ * paints a few thousand small leaf clusters into a roughly round mass
+ * with a torn silhouette. Mapped onto crossed quads it reads as a tree
+ * at the distances this scene uses it, for one texture and no geometry.
+ */
+export function createFoliageTexture(): THREE.Texture {
+  const size = 512;
+  const canvas = makeCanvas(size, size);
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, size, size);
+
+  // Deterministic, so the tree line never reshuffles between reloads.
+  let seed = 8712361;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+
+  const cx = size / 2;
+  const cy = size * 0.54;
+
+  const leaves = 2600;
+  for (let i = 0; i < leaves; i++) {
+    // Cluster toward the middle, with enough outliers to tear the edge.
+    const angle = rand() * Math.PI * 2;
+    const radial = Math.pow(rand(), 0.62);
+    const rx = radial * size * 0.46;
+    const ry = radial * size * 0.4;
+    const x = cx + Math.cos(angle) * rx;
+    const y = cy + Math.sin(angle) * ry * 1.05;
+
+    // Foliage is darker and denser low and inside, lighter at the crown.
+    const lift = 1 - y / size;
+    const shade = 0.42 + lift * 0.4 + rand() * 0.2 - radial * 0.15;
+    const r = Math.round(26 + shade * 46);
+    const g = Math.round(44 + shade * 74);
+    const b = Math.round(22 + shade * 34);
+    const alpha = 0.55 + rand() * 0.45;
+
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    const leaf = size * (0.013 + rand() * 0.028) * (1 - radial * 0.35);
+    ctx.beginPath();
+    ctx.ellipse(x, y, leaf, leaf * (0.6 + rand() * 0.5), rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+/**
+ * Warm radial falloff used for the sun's glare.
+ *
+ * Shooting into a low sun is the whole lighting idea of this scene, and a
+ * real lens blooms when you do it. One soft additive sprite gives that
+ * without a post-processing pass.
+ */
+export function createGlareTexture(): THREE.Texture {
+  const size = 256;
+  const canvas = makeCanvas(size, size);
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createRadialGradient(
+    size / 2, size / 2, 0,
+    size / 2, size / 2, size / 2,
+  );
+  grad.addColorStop(0, 'rgba(255, 246, 219, 0.95)');
+  grad.addColorStop(0.12, 'rgba(255, 235, 190, 0.55)');
+  grad.addColorStop(0.4, 'rgba(255, 226, 172, 0.16)');
+  grad.addColorStop(1, 'rgba(255, 220, 160, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}

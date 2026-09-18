@@ -25,9 +25,8 @@
 }
 
 .loader__mark {
-  width: 46px;
-  height: 46px;
-  opacity: 0.9;
+  width: 44px;
+  opacity: 0.92;
 }
 
 .loader__word {

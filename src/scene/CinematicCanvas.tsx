@@ -1,8 +1,10 @@
-import { Component, Suspense, useMemo, type ReactNode } from 'react';
+import { Component, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import Scene from './Scene';
 import FallbackScene from './FallbackScene';
+import FrameSequence from './cinema/FrameSequence';
+import { configuredMode, loadManifest, type FrameManifest } from './cinema/mode';
 import './canvas.css';
 
 /* ============================================================
@@ -47,6 +49,47 @@ class SceneBoundary extends Component<
 }
 
 /**
+ * Chooses the renderer for the hero film.
+ *
+ * `realtime` is the default and costs nothing to decide. The other modes
+ * look for a pre-rendered sequence, and fall back to the realtime scene
+ * if there isn't one or it is unusable — the film always plays.
+ */
+function useCinema() {
+  const configured = useMemo(configuredMode, []);
+  const [manifest, setManifest] = useState<FrameManifest | null>(null);
+  const [resolved, setResolved] = useState(configured === 'realtime');
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (configured === 'realtime') return;
+
+    const controller = new AbortController();
+    loadManifest(controller.signal).then((found) => {
+      if (controller.signal.aborted) return;
+      if (!found && configured === 'frames') {
+        console.warn(
+          '[RAIGE] VITE_CINEMA_MODE=frames but no sequence was found at ' +
+            '/cinema/manifest.json. Falling back to the realtime scene. ' +
+            'See public/cinema/README.md.',
+        );
+      }
+      setManifest(found);
+      setResolved(true);
+    });
+
+    return () => controller.abort();
+  }, [configured]);
+
+  return {
+    resolved,
+    useFrames: Boolean(manifest) && !failed,
+    manifest,
+    onFrameFailure: () => setFailed(true),
+  };
+}
+
+/**
  * Device-appropriate quality. Phones get the same film with fewer
  * blades of grass — the story is identical, the budget is not.
  */
@@ -74,6 +117,7 @@ export default function CinematicCanvas({
 }) {
   const quality = useQuality(simplified);
   const supported = useMemo(() => hasWebGL(), []);
+  const cinema = useCinema();
 
   if (disabled || !supported) {
     return (
@@ -83,6 +127,23 @@ export default function CinematicCanvas({
     );
   }
 
+  // Still deciding which renderer to use; the loader is still on screen.
+  if (!cinema.resolved) {
+    return <div className="cinematic-canvas" />;
+  }
+
+  // MODE B — a pre-rendered sequence, scrubbed by the same timeline.
+  if (cinema.useFrames && cinema.manifest) {
+    return (
+      <div className="cinematic-canvas">
+        <SceneBoundary fallback={<FallbackScene />}>
+          <FrameSequence manifest={cinema.manifest} onFailure={cinema.onFrameFailure} />
+        </SceneBoundary>
+      </div>
+    );
+  }
+
+  // MODE A — the realtime scene.
   return (
     <div className="cinematic-canvas">
       <SceneBoundary fallback={<FallbackScene />}>

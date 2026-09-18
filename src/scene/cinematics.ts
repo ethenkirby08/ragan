@@ -208,11 +208,17 @@ const CAM_OFFSET: VectorKey[] = [
   [0.08, 0.68, 0.2, 1.9], // the camera begins to move in
   [0.155, 0.6, 0.34, 2.45], // tension
   [P_IMPACT, 0.56, 0.31, 2.2], // impact — the ball holds the frame
-  [0.235, 1.1, 0.75, 3.6], // it's gone; the lens is left behind
-  [0.3, 2.3, 1.7, 9.2], // giving chase
-  [0.4, 3.7, 2.4, 15.5],
-  [0.47, 4.4, 2.5, 19.0], // wide: the course beneath
-  [0.56, 3.4, 1.5, 12.0], // closing back in
+  /*
+    The chase used to fall back far enough that the ball became a
+    twenty-pixel speck on a phone. These are pulled in by roughly a
+    third: the course still opens up underneath, but the ball stays the
+    thing the shot is about.
+  */
+  [0.235, 0.95, 0.62, 3.0], // it's gone; the lens is left behind
+  [0.3, 1.5, 1.1, 5.8], // giving chase
+  [0.4, 2.4, 1.6, 9.6],
+  [0.47, 2.9, 1.75, 11.8], // wide: the course beneath
+  [0.56, 2.3, 1.1, 7.6], // closing back in
   [0.63, 1.25, 0.45, 3.1], // the environment turns editorial
   [0.7, 0.42, 0.12, 0.92], // hero: the ball fills the frame
   [0.76, 0.36, 0.1, 0.78],
@@ -372,7 +378,14 @@ export function atmosphereColor(p: number, out = _fog): THREE.Color {
 
 /** Fog thins as we climb, so the course reveals itself from above. */
 export function fogDensity(p: number): number {
-  let base = THREE.MathUtils.lerp(0.0115, 0.0034, smoothstep(0.2, 0.46, p));
+  /*
+    Aerial perspective is doing real work here, not just mood. Morning air
+    over a Southern course washes out anything past a hundred metres, and
+    that falloff is most of what makes distance read as distance. It also
+    happens to dissolve the tree line's silhouette before the eye can
+    resolve it into flat cards.
+  */
+  let base = THREE.MathUtils.lerp(0.0125, 0.0062, smoothstep(0.2, 0.46, p));
   // Evening haze over the green: it settles the closing act and keeps the
   // tree line from crowding the hole.
   base = THREE.MathUtils.lerp(base, 0.0125, smoothstep(0.86, 0.94, p));

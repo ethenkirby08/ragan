@@ -64,7 +64,7 @@ export default function Loader({ onDone }: { onDone: () => void }) {
   return (
     <div className={`loader${leaving ? ' is-leaving' : ''}`} role="status" aria-live="polite">
       <div className="loader__inner">
-        <RaigeMonogram className="loader__mark" title="" />
+        <RaigeMonogram className="loader__mark" title="" tone="cream" />
         <div className="loader__word display">RAIGE</div>
         <div className="loader__meta eyebrow">Est. 2026</div>
         <div className="loader__track" aria-hidden="true">
