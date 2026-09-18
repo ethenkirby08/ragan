@@ -12,7 +12,7 @@ import {
   editorialAmount,
 } from './cinematics';
 import { GolfBall, Tee, Club, TurfSpray } from './GolfBall';
-import { createEnvironmentMap, createGlareTexture } from './textures';
+import { createEnvironmentMap } from './textures';
 import Grass from './Grass';
 import { Sky3D, Turf, TreeLine, PuttingGreen, SUN_DIR } from './Environment';
 
@@ -41,7 +41,20 @@ function CameraRig() {
   */
   useFrame((_, delta) => {
     const dp = scrollStore.get();
-    const dt = Math.min(delta, 1 / 30);
+    /*
+      The REAL elapsed time, only capped against a backgrounded tab.
+
+      This used to be clamped to 1/30s. Exponential smoothing is written
+      in seconds, so feeding it 33ms when 140ms actually passed makes the
+      lens converge four times slower than intended — and the slower the
+      device, the further the camera trails its own subject. That is the
+      "camera loses the ball" fault, and it is the same mistake the scroll
+      store had: time-based easing fed a clamped clock.
+
+      No sub-stepping needed here: `1 - exp(-k*dt)` approaches 1 for large
+      dt, so it is unconditionally stable.
+    */
+    const dt = Math.min(delta, 0.25);
 
     ballPosition(dp, ball);
     cameraPosition(dp, ball, position);
@@ -52,6 +65,33 @@ function CameraRig() {
     // when the offset keyframes change direction.
     smoothTarget.lerp(target, 1 - Math.exp(-14 * dt));
     camera.lookAt(smoothTarget);
+
+    /*
+      Development-only read-out of where the shot actually is. Reasoning
+      about a camera rig from the code alone is how you end up blaming the
+      ball for a sprite that was drawing over it.
+    */
+    if (import.meta.env.DEV) {
+      (window as unknown as { __raigeScene?: unknown }).__raigeScene = {
+        t: dp,
+        cam: camera.position.toArray().map((v) => +v.toFixed(2)),
+        ball: ball.toArray().map((v) => +v.toFixed(2)),
+        dist: +camera.position.distanceTo(ball).toFixed(2),
+        fov: +(camera as THREE.PerspectiveCamera).fov.toFixed(1),
+        // Where the ball actually lands on screen, in pixels.
+        screen: (() => {
+          const ndc = ball.clone().project(camera);
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          const px = ((ndc.x + 1) / 2) * w;
+          const py = ((1 - ndc.y) / 2) * h;
+          const fovRad = ((camera as THREE.PerspectiveCamera).fov * Math.PI) / 180;
+          const dist = camera.position.distanceTo(ball);
+          const diameter = (0.24 / (2 * dist * Math.tan(fovRad / 2))) * h;
+          return { x: Math.round(px), y: Math.round(py), d: Math.round(diameter) };
+        })(),
+      };
+    }
 
     const perspective = camera as THREE.PerspectiveCamera;
     /*
@@ -138,13 +178,13 @@ function Atmosphere({
 
   return (
     <>
-      <hemisphereLight ref={hemi} args={['#e8ecdf', '#435c38', 1.05]} />
+      <hemisphereLight ref={hemi} args={['#e7ecd6', '#4a6535', 0.95]} />
       {/* Key: low, warm, and behind the action — everything is rim-lit. */}
       <directionalLight
         ref={key}
         position={[SUN_DIR.x * 60, SUN_DIR.y * 60 + 14, SUN_DIR.z * 60]}
-        intensity={2.6}
-        color="#ffdfae"
+        intensity={2.9}
+        color="#ffd79b"
       />
       {/* Fill from above and behind the lens, so the ball never goes to
           silhouette and the dimples always catch an edge of light. */}
@@ -153,56 +193,17 @@ function Atmosphere({
   );
 }
 
+/*
+  The sun's glare lives in the sky shader, where the sun is.
+
+  There was a separate additive sprite here. Because it was transparent it
+  rendered after all the opaque geometry, and with depth testing off it
+  painted a soft bright disc straight over the fairway — which read, at a
+  glance, as a second golf ball floating in the middle of the shot. A
+  bloom that competes with the subject is not restraint, so it is gone.
+*/
+
 /** Holds the fairway and tree line off-screen once we're over the green. */
-/**
- * Sun glare.
- *
- * Parked in the sun's direction and kept facing the lens, fading in as
- * the camera turns toward it. The whole scene is backlit by a low sun, so
- * this is the one effect that genuinely belongs — it is what a real lens
- * does when you point it down a fairway at sunrise.
- */
-function SunGlare() {
-  const sprite = useRef<THREE.Mesh>(null);
-  const { camera } = useThree();
-  const glare = useMemo(() => createGlareTexture(), []);
-  const forward = useMemo(() => new THREE.Vector3(), []);
-
-  useEffect(() => () => glare.dispose(), [glare]);
-
-  useFrame(() => {
-    const mesh = sprite.current;
-    if (!mesh) return;
-
-    const editorial = editorialAmount(scrollStore.get());
-    mesh.position.copy(camera.position).addScaledVector(SUN_DIR, 140);
-    mesh.quaternion.copy(camera.quaternion);
-
-    camera.getWorldDirection(forward);
-    const alignment = Math.max(forward.dot(SUN_DIR), 0);
-    // Only blooms when the lens is actually pointed near the sun, and
-    // retires entirely in the cream studio chapters.
-    const strength = Math.pow(alignment, 2.2) * (1 - editorial);
-    (mesh.material as THREE.MeshBasicMaterial).opacity = strength * 0.5;
-    mesh.visible = strength > 0.01;
-  });
-
-  return (
-    <mesh ref={sprite} renderOrder={-50} visible={false}>
-      <planeGeometry args={[150, 150]} />
-      <meshBasicMaterial
-        map={glare}
-        transparent
-        opacity={0}
-        depthWrite={false}
-        depthTest={false}
-        blending={THREE.AdditiveBlending}
-        fog={false}
-      />
-    </mesh>
-  );
-}
-
 function CourseBody({
   fogColor,
   fogDensityRef,
@@ -268,7 +269,6 @@ export default function Scene({ quality }: { quality: number }) {
       <EnvironmentMap />
       <Atmosphere fogColor={fogColor} fogDensityRef={fogDensityRef} />
       <Sky3D fogColor={fogColor} />
-      <SunGlare />
       <CourseBody fogColor={fogColor} fogDensityRef={fogDensityRef} quality={quality} />
       <Tee />
       <GolfBall quality={quality} />

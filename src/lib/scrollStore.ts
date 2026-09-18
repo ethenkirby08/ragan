@@ -217,6 +217,8 @@ if (import.meta.env.DEV) {
     value: () => value,
     target: () => target,
     velocity: () => velocity,
-    settled: () => Math.abs(target - value) < 0.002,
+    // Same threshold the store itself settles at, so a test that waits
+    // for this is waiting for the film to have genuinely stopped.
+    settled: () => value === target || Math.abs(target - value) < SETTLE,
   };
 }

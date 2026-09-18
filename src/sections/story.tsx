@@ -39,8 +39,8 @@ export const CHAPTERS: ChapterDef[] = [
   {
     id: 'first-tee',
     title: 'The First Tee',
-    // Starts fully on screen at progress 0 — the opening shot is already lit.
-    window: [-0.05, -0.02, 0.055, 0.1],
+    // Open at progress 0 and still open at the tee's resting point (0.075).
+    window: [-0.06, -0.02, 0.105, 0.15],
     ink: 'cream',
     drift: 26,
     content: <FirstTeeContent />,
@@ -48,7 +48,8 @@ export const CHAPTERS: ChapterDef[] = [
   {
     id: 'impact',
     title: 'Impact',
-    window: [0.115, 0.145, 0.19, 0.212],
+    // Fully open at the impact rest (0.212).
+    window: [0.168, 0.196, 0.232, 0.255],
     ink: 'cream',
     drift: 14,
     content: <ImpactContent />,
@@ -56,7 +57,8 @@ export const CHAPTERS: ChapterDef[] = [
   {
     id: 'flight',
     title: 'Flight',
-    window: [0.255, 0.305, 0.385, 0.435],
+    // Spans both flight rests (launch 0.275 and flight 0.355).
+    window: [0.243, 0.268, 0.378, 0.415],
     ink: 'cream',
     drift: 44,
     content: <FlightContent />,
@@ -64,7 +66,8 @@ export const CHAPTERS: ChapterDef[] = [
   {
     id: 'apex',
     title: 'Built for the course',
-    window: [0.46, 0.5, 0.545, 0.585],
+    // Fully open at the apex rest (0.515).
+    window: [0.45, 0.488, 0.548, 0.588],
     ink: 'cream',
     drift: 40,
     content: <ApexContent />,
@@ -96,7 +99,8 @@ export const CHAPTERS: ChapterDef[] = [
   {
     id: 'green',
     title: 'The Green',
-    window: [0.9, 0.918, 0.948, 0.965],
+    // Fully open at the green rest (0.958).
+    window: [0.903, 0.923, 0.976, 0.99],
     ink: 'cream',
     drift: 22,
     content: <GreenContent />,

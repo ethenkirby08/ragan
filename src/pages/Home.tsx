@@ -12,6 +12,7 @@ import Editorial from '../sections/Editorial';
 import Footer from '../components/Footer';
 import ScrollCue from '../components/ScrollCue';
 import { scrollStore } from '../lib/scrollStore';
+import { shapeScroll } from '../lib/filmSegments';
 import {
   initSmoothScroll,
   destroySmoothScroll,
@@ -57,11 +58,15 @@ export default function Home() {
       trigger: node,
       start: 'top top',
       end: 'bottom bottom',
-      // Scroll only ever sets a TARGET. The store eases toward it under a
-      // speed limit, which is what stops a fast swipe from throwing the
-      // ball across the sky.
-      onUpdate: (self) => scrollStore.setTarget(self.progress),
-      onRefresh: (self) => scrollStore.setTarget(self.progress),
+      /*
+        Scroll never moves the film directly. It is shaped into segments
+        first — each shot travels, then rests — and the result is only a
+        TARGET. The store eases toward that target under a speed limit,
+        so a fast swipe scrolls the page normally while the film plays
+        through at a readable rate.
+      */
+      onUpdate: (self) => scrollStore.setTarget(shapeScroll(self.progress)),
+      onRefresh: (self) => scrollStore.setTarget(shapeScroll(self.progress)),
     });
 
     return () => {

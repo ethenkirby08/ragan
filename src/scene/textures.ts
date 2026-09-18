@@ -258,29 +258,3 @@ export function createFoliageTexture(): THREE.Texture {
   return texture;
 }
 
-/**
- * Warm radial falloff used for the sun's glare.
- *
- * Shooting into a low sun is the whole lighting idea of this scene, and a
- * real lens blooms when you do it. One soft additive sprite gives that
- * without a post-processing pass.
- */
-export function createGlareTexture(): THREE.Texture {
-  const size = 256;
-  const canvas = makeCanvas(size, size);
-  const ctx = canvas.getContext('2d')!;
-  const grad = ctx.createRadialGradient(
-    size / 2, size / 2, 0,
-    size / 2, size / 2, size / 2,
-  );
-  grad.addColorStop(0, 'rgba(255, 246, 219, 0.95)');
-  grad.addColorStop(0.12, 'rgba(255, 235, 190, 0.55)');
-  grad.addColorStop(0.4, 'rgba(255, 226, 172, 0.16)');
-  grad.addColorStop(1, 'rgba(255, 220, 160, 0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}

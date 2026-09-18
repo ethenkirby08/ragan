@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { seeded } from '../lib/motion';
 import { createFoliageTexture } from './textures';
+import { TERRAIN_GLSL, terrainHeight } from './terrain';
 import { scrollStore } from '../lib/scrollStore';
 import {
   GREEN_CENTER,
@@ -122,10 +123,26 @@ function Sky({ fogColor }: { fogColor: THREE.Color }) {
    value noise for the mottling that stops CG grass looking like felt.
    ------------------------------------------------------------ */
 const groundVert = /* glsl */ `
+  ${TERRAIN_GLSL}
+
   varying vec3 vWorld;
+  varying vec3 vNormal;
   varying float vDepth;
+
   void main() {
     vec4 world = modelMatrix * vec4(position, 1.0);
+
+    float h = raigeGround(world.xz);
+    world.y += h;
+
+    // Slope, by finite difference on the same height field. Without a
+    // normal the rolling land displaces but never catches the light, and
+    // the whole point of the relief is the way a low sun rakes across it.
+    const float e = 2.5;
+    float hx = raigeGround(world.xz + vec2(e, 0.0));
+    float hz = raigeGround(world.xz + vec2(0.0, e));
+    vNormal = normalize(vec3(-(hx - h) / e, 1.0, -(hz - h) / e));
+
     vWorld = world.xyz;
     vec4 mv = viewMatrix * world;
     vDepth = -mv.z;
@@ -134,14 +151,19 @@ const groundVert = /* glsl */ `
 `;
 
 const groundFrag = /* glsl */ `
+  ${TERRAIN_GLSL}
+
   uniform vec3 uFairway;
+  uniform vec3 uSemi;
   uniform vec3 uRough;
+  uniform vec3 uSand;
   uniform vec3 uFogColor;
   uniform float uFogDensity;
-  uniform float uSunFacing;
   uniform float uEditorial;
   uniform vec3 uSunDir;
+
   varying vec3 vWorld;
+  varying vec3 vNormal;
   varying float vDepth;
 
   float hash(vec2 p) {
@@ -159,24 +181,35 @@ const groundFrag = /* glsl */ `
     );
   }
 
-  void main() {
-    // Fairway corridor: mown turf in the middle, rough at the edges.
-    float edge = noise(vec2(vWorld.z * 0.03, 0.0)) * 9.0;
-    float lateral = abs(vWorld.x + vWorld.z * 0.012);
-    float corridor = 1.0 - smoothstep(15.0 + edge, 31.0 + edge, lateral);
-    vec3 col = mix(uRough, uFairway, corridor);
+  /** Elliptical falloff for one bunker. 1 inside, 0 outside. */
+  float bunker(vec2 p, vec4 b) {
+    vec2 d = (p - b.xy) / b.zw;
+    return 1.0 - smoothstep(0.82, 1.0, length(d));
+  }
 
-    // Mower stripes, alternating with the direction of cut.
-    // Mower stripes. Softened at the edges and broken up by noise,
-    // because a real cut wanders and a perfect sine reads as a barcode.
+  void main() {
+    // Mown corridor, with an edge that wanders the way a real cut does.
+    float edge = noise(vec2(vWorld.z * 0.03, 0.0)) * 9.0;
+    float lateral = raigeLateral(vWorld.xz);
+
+    // Three zones out from the line of play: fairway, first cut, and the
+    // tawny fescue rough that gives a heathland course its colour.
+    float toSemi = smoothstep(13.0 + edge, 22.0 + edge, lateral);
+    // The tawny band sits between the first cut and the tree line, which
+    // is the only place it is ever actually seen down the hole.
+    float toRough = smoothstep(24.0 + edge, 42.0 + edge * 1.2, lateral);
+
+    vec3 col = mix(uFairway, uSemi, toSemi);
+    col = mix(col, uRough, toRough);
+
+    // Mower stripes, only on the mown part, softened and wandering.
+    float corridor = 1.0 - toSemi;
     float wander = noise(vWorld.xz * 0.06) * 2.4;
     float stripe = sin(vWorld.z * 0.2 + wander) * 0.5 + 0.5;
     stripe = smoothstep(0.12, 0.88, stripe);
     col *= mix(0.88, 1.14, stripe * corridor);
 
-    // Five octaves of mottling. Real turf is never one colour: it carries
-    // broad patches from drainage and mowing, clumping at a metre or so,
-    // and a fine grain right under the lens.
+    // Mottling across five scales, from drainage patches down to grain.
     float n = noise(vWorld.xz * 0.05) * 0.34
             + noise(vWorld.xz * 0.22) * 0.24
             + noise(vWorld.xz * 0.9) * 0.2
@@ -184,33 +217,54 @@ const groundFrag = /* glsl */ `
             + noise(vWorld.xz * 15.0) * 0.09;
     col *= 0.78 + n * 0.46;
 
-    // A directional grain, as though the turf were cut in one direction.
     float grain = noise(vec2(vWorld.x * 22.0, vWorld.z * 3.0));
     col *= 0.95 + grain * 0.1;
 
+    // Bunkers. Shaded rather than dug: at this distance the sand reads as
+    // scale and depth, and a depression would not.
+    vec4 pits[4];
+    pits[0] = vec4(-27.0, -118.0, 10.0, 5.2);
+    pits[1] = vec4(23.0, -188.0, 7.5, 4.0);
+    pits[2] = vec4(-21.0, -266.0, 8.5, 4.6);
+    pits[3] = vec4(17.0, -274.0, 6.0, 3.4);
+    for (int i = 0; i < 4; i++) {
+      float inPit = bunker(vWorld.xz, pits[i]);
+      if (inPit > 0.001) {
+        vec3 sand = uSand * (0.9 + noise(vWorld.xz * 1.6) * 0.2);
+        // A darker lip where the face is cut into the ground.
+        float lip = smoothstep(0.55, 0.95, inPit) * (1.0 - smoothstep(0.95, 1.0, inPit));
+        col = mix(col, sand, inPit);
+        col *= 1.0 - lip * 0.12;
+      }
+    }
+
+    vec3 normal = normalize(vNormal);
+    vec3 sun = normalize(uSunDir);
     vec3 view = normalize(cameraPosition - vWorld);
 
     /*
-      Grass sheen. Turf is not a diffuse sheet — the blades scatter light
-      forward, so it goes pale and silvery when you look toward a low sun
-      and stays dark when the sun is behind you. This one term does more
-      for the photographic read of a fairway than any amount of texture.
+      Raking light. The sun sits just above the horizon, so slopes facing
+      it go bright and slopes turned away fall into shade. This is what
+      turns the height field from a wobble into landform.
     */
-    float toSun = max(dot(view, normalize(uSunDir)), 0.0);
+    float lambert = max(dot(normal, sun), 0.0);
+    col *= 0.72 + lambert * 0.55;
+
+    /*
+      Grass sheen. Turf scatters light forward, so it goes pale and
+      silvery looking toward a low sun and stays dark with the sun
+      behind. One term, and more photographic than any texture.
+    */
+    float toSun = max(dot(view, sun), 0.0);
     float grazing = 1.0 - max(view.y, 0.0);
     col += vec3(0.30, 0.31, 0.22) * pow(toSun, 3.5) * pow(grazing, 2.0) * 0.85;
-
-    // Long raking light from the low sun.
-    col *= 0.94 + uSunFacing * 0.12;
 
     // Exponential-squared fog, matched by hand to the scene fog so the
     // custom turf shader and the standard materials share one horizon.
     float f = 1.0 - exp(-pow(vDepth * uFogDensity, 2.0));
     col = mix(col, uFogColor, clamp(f, 0.0, 1.0));
 
-    // In the editorial chapters the course dissolves completely, so the
-    // ball is left floating in a clean studio rather than hovering over
-    // a horizon line that has no business being there.
+    // In the editorial chapters the course dissolves completely.
     col = mix(col, uFogColor, uEditorial);
 
     gl_FragColor = vec4(col, 1.0);
@@ -226,37 +280,42 @@ export function Turf({
   fogDensityRef: React.MutableRefObject<number>;
 }) {
   const mat = useRef<THREE.ShaderMaterial>(null);
+  const mesh = useRef<THREE.Mesh>(null);
 
   const uniforms = useMemo(
     () => ({
-      uFairway: { value: new THREE.Color('#517a38') },
-      uRough: { value: new THREE.Color('#2f4b28') },
+      uFairway: { value: new THREE.Color('#5d8f3a') },
+      uSemi: { value: new THREE.Color('#4a7530') },
+      // Tawny fescue, as in the reference: a heathland course is not
+      // green to the horizon, and that colour break is most of what
+      // separates fairway from everything else at distance.
+      uRough: { value: new THREE.Color('#9d9054') },
+      uSand: { value: new THREE.Color('#cdba92') },
       uFogColor: { value: fogColor },
-      uFogDensity: { value: 0.0115 },
-      uSunFacing: { value: 0.5 },
+      uFogDensity: { value: 0.0125 },
       uEditorial: { value: 0 },
       uSunDir: { value: SUN_DIR.clone() },
     }),
     [fogColor],
   );
 
-  const mesh = useRef<THREE.Mesh>(null);
-
   useFrame(() => {
     if (!mat.current) return;
     const editorial = editorialAmount(scrollStore.get());
     mat.current.uniforms.uFogDensity.value = fogDensityRef.current;
     mat.current.uniforms.uEditorial.value = editorial;
-    // Once the turf has fully dissolved there is nothing left to draw, and
-    // leaving it on puts a flat band under the sky gradient.
+    // Once the turf has fully dissolved there is nothing left to draw.
     if (mesh.current) mesh.current.visible = editorial < 0.985;
   });
 
   return (
-    <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -400]} receiveShadow={false}>
-      {/* Deliberately vast: the plane's far edge must never surface
-          through the haze at any point on the timeline. */}
-      <planeGeometry args={[3000, 3000, 1, 1]} />
+    <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -430]}>
+      {/*
+        Subdivided so the height field has vertices to move. 170 x 240
+        puts a vertex roughly every ten units, which resolves the longest
+        relief wavelengths with room to spare and costs one draw call.
+      */}
+      <planeGeometry args={[1700, 2400, 170, 240]} />
       <shaderMaterial
         ref={mat}
         args={[{ uniforms, vertexShader: groundVert, fragmentShader: groundFrag }]}
@@ -279,7 +338,7 @@ export function Turf({
    Alpha testing rather than blending keeps them depth-sorted correctly
    with no transparency artefacts, and the whole line is two draw calls.
    ------------------------------------------------------------ */
-const TREE_COUNT = 150;
+const TREE_COUNT = 230;
 /** Quads per tree. Three gives a full silhouette from any angle. */
 const CARDS = 3;
 
@@ -292,17 +351,30 @@ export function TreeLine() {
 
   const trees = useMemo(() => {
     const rand = seeded(20260417);
-    const list: { x: number; z: number; r: number; h: number; tilt: number; lean: number }[] = [];
+    const list: { x: number; z: number; y: number; r: number; h: number; tilt: number; lean: number }[] = [];
     for (let i = 0; i < TREE_COUNT; i++) {
       const side = i % 2 === 0 ? 1 : -1;
-      const z = -52 - rand() * 310;
-      // The corridor widens gently down the hole.
-      const inset = 44 + rand() * 46 + Math.abs(z) * 0.02;
+
+      /*
+        Two bands. The near line frames the hole; a second, further one
+        sits well beyond it and is almost entirely dissolved by haze.
+        That second layer is what gives the distance a floor — with one
+        band the course simply stops at the tree line.
+      */
+      const far = i >= TREE_COUNT * 0.62;
+      const z = far ? -370 - rand() * 330 : -52 - rand() * 310;
+      const inset = far
+        ? 30 + rand() * 150
+        : 44 + rand() * 46 + Math.abs(z) * 0.02;
+      const x = side * inset + (rand() - 0.5) * 8;
+
       list.push({
-        x: side * inset + (rand() - 0.5) * 8,
+        x,
+        // Trees stand ON the land, not on the plane it used to be.
+        y: terrainHeight(x, z),
         z,
-        r: 4.2 + rand() * 3.4,
-        h: 6.5 + rand() * 6.5,
+        r: (far ? 5.2 + rand() * 4 : 4.2 + rand() * 3.4),
+        h: (far ? 8 + rand() * 7 : 6.5 + rand() * 6.5),
         tilt: (rand() - 0.5) * 0.16,
         lean: rand() * Math.PI,
       });
@@ -336,7 +408,7 @@ export function TreeLine() {
       );
 
       for (let c = 0; c < CARDS; c++) {
-        dummy.position.set(t.x, t.h, t.z);
+        dummy.position.set(t.x, t.y + t.h, t.z);
         dummy.rotation.set(t.tilt, t.lean + (c * Math.PI) / CARDS, t.tilt * 0.5);
         // Canopies are wider than they are tall, like a mature hardwood.
         // Mirroring alternate cards stops one foliage texture from
@@ -348,7 +420,7 @@ export function TreeLine() {
         canopyMesh.setColorAt(i * CARDS + c, tint);
       }
 
-      dummy.position.set(t.x, t.h * 0.4, t.z);
+      dummy.position.set(t.x, t.y + t.h * 0.4, t.z);
       dummy.scale.set(t.r * 0.075, t.h * 0.46, t.r * 0.075);
       dummy.rotation.set(0, 0, t.tilt * 0.5);
       dummy.updateMatrix();
@@ -414,7 +486,7 @@ export function PuttingGreen() {
         position={[GREEN_CENTER.x, 0.012, GREEN_CENTER.z]}
         rotation={[-Math.PI / 2, 0, 0]}
       >
-        <circleGeometry args={[GREEN_RADIUS, 64]} />
+        <circleGeometry args={[GREEN_RADIUS, 72]} />
         <meshStandardMaterial color="#5e8347" roughness={0.95} />
       </mesh>
 

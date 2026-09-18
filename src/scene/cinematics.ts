@@ -214,11 +214,20 @@ const CAM_OFFSET: VectorKey[] = [
     third: the course still opens up underneath, but the ball stays the
     thing the shot is about.
   */
+  /*
+    Distances through the chase are kept between three and five units.
+
+    Any further back and the ball is a twenty-pixel speck on a phone, and
+    the shot stops being about it. The sense of height and scale comes
+    instead from pitching the lens DOWN (see LOOK_OFFSET) so the fairway,
+    its bunkering and the tree lines open up beneath the ball, rather
+    than from retreating until the ball is lost.
+  */
   [0.235, 0.95, 0.62, 3.0], // it's gone; the lens is left behind
-  [0.3, 1.5, 1.1, 5.8], // giving chase
-  [0.4, 2.4, 1.6, 9.6],
-  [0.47, 2.9, 1.75, 11.8], // wide: the course beneath
-  [0.56, 2.3, 1.1, 7.6], // closing back in
+  [0.3, 1.05, 0.8, 3.7], // giving chase
+  [0.4, 1.2, 1.15, 4.3],
+  [0.47, 1.3, 1.3, 4.5], // the apex: the course opens up below
+  [0.56, 1.2, 0.95, 3.9], // closing back in
   [0.63, 1.25, 0.45, 3.1], // the environment turns editorial
   [0.7, 0.42, 0.12, 0.92], // hero: the ball fills the frame
   [0.76, 0.36, 0.1, 0.78],
@@ -237,8 +246,12 @@ const LOOK_OFFSET: VectorKey[] = [
   [0.0, -0.34, 0.44, -0.7],
   [0.1, -0.2, 0.2, -0.45],
   [P_IMPACT, -0.02, 0.12, -0.3],
-  [0.3, -0.3, 0.4, -3.0], // looking ahead down the line of flight
-  [0.47, -0.5, 0.2, -5.0],
+  // Pitched down through the flight, so the land beneath the ball is the
+  // thing that conveys height. The ball sits high in frame and the hole
+  // runs away below it.
+  [0.3, -0.3, -0.35, -4.2], // looking ahead down the line of flight
+  [0.47, -0.5, -0.6, -9.0], // the widest read of the course
+  [0.56, -0.3, -0.4, -4.0],
   // Through the apparel chapters the ball is cropped by the bottom of
   // frame — a large sculptural presence that never competes with the
   // garment or the type.
@@ -353,7 +366,7 @@ export function clubState(p: number) {
    chapters, then settles back to turf for the green.
    ------------------------------------------------------------ */
 const SKY_DAWN = new THREE.Color('#e8d9bd');
-const SKY_HIGH = new THREE.Color('#cfd9cd');
+const SKY_HIGH = new THREE.Color('#dcdcc4');
 // Not a flat cream: the editorial horizon is a shade deeper than the
 // zenith, so a white golf ball has something to read against instead of
 // vanishing into the background.
@@ -385,7 +398,7 @@ export function fogDensity(p: number): number {
     happens to dissolve the tree line's silhouette before the eye can
     resolve it into flat cards.
   */
-  let base = THREE.MathUtils.lerp(0.0125, 0.0062, smoothstep(0.2, 0.46, p));
+  let base = THREE.MathUtils.lerp(0.0125, 0.0047, smoothstep(0.2, 0.46, p));
   // Evening haze over the green: it settles the closing act and keeps the
   // tree line from crowding the hole.
   base = THREE.MathUtils.lerp(base, 0.0125, smoothstep(0.86, 0.94, p));

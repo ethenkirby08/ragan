@@ -402,9 +402,16 @@
     width: min(58vw, 260px);
   }
 
+  /*
+    Right-set chapters move to the BOTTOM of a portrait frame, not just
+    to the left of it. The ball sits mid-frame during the flight beats,
+    and on a phone there is no width to step aside into — only height.
+  */
   .ch--right {
     align-items: flex-start;
+    justify-content: flex-end;
     text-align: left;
+    padding-bottom: 2vh;
   }
 
   .ch--right .ch__lede {

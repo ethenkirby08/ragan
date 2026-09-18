@@ -95,6 +95,19 @@ export function GolfBall({ quality }: { quality: number }) {
       }
     }
 
+    if (import.meta.env.DEV && blur.current && ball.current) {
+      const ws = new THREE.Vector3();
+      blur.current.getWorldScale(ws);
+      (window as unknown as { __raigeBall?: unknown }).__raigeBall = {
+        groupScale: blur.current.scale.toArray().map((v) => +v.toFixed(3)),
+        worldScale: ws.toArray().map((v) => +v.toFixed(3)),
+        meshScale: ball.current.scale.toArray().map((v) => +v.toFixed(3)),
+        stretch: +stretch.current.toFixed(3),
+        pos: blur.current.position.toArray().map((v) => +v.toFixed(2)),
+        visible: blur.current.visible,
+      };
+    }
+
     if (shadow.current) {
       const height = Math.max(pos.y - BALL_RADIUS, 0);
       // A shadow spreads AND thins as its caster rises; only widening it
@@ -242,14 +255,18 @@ export function Club() {
 
           {/* Head. Lifted by its own half-height, because the arc ends
               where the SOLE meets the turf, not at the head's centre. */}
-          <group position={[-0.2, -CLUB_LENGTH + 0.14, 0]} rotation={[0, 0, 0.12]}>
-            <mesh scale={[0.24, 0.125, 0.28]}>
+          <group position={[-0.17, -CLUB_LENGTH + 0.11, 0]} rotation={[0, 0, 0.12]}>
+            {/* Sized for portrait. A head that reads as a restrained shape
+                on a wide desktop frame becomes a black slab across a
+                phone, because the crop takes the width away, not the
+                height. */}
+            <mesh scale={[0.185, 0.098, 0.215]}>
               <sphereGeometry args={[1, 20, 12]} />
               <meshBasicMaterial ref={register} color={CLUB_INK} transparent opacity={0} />
             </mesh>
             {/* Hosel: the short taper from crown to shaft */}
-            <mesh position={[0.185, 0.14, 0]} rotation={[0, 0, 0.2]}>
-              <cylinderGeometry args={[0.017, 0.036, 0.26, 8]} />
+            <mesh position={[0.14, 0.11, 0]} rotation={[0, 0, 0.2]}>
+              <cylinderGeometry args={[0.014, 0.028, 0.2, 8]} />
               <meshBasicMaterial ref={register} color={CLUB_INK} transparent opacity={0} />
             </mesh>
           </group>
